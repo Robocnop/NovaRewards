@@ -1,7 +1,7 @@
 # 🎁 NovaRewards
 
 ![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
-![Jeux](https://img.shields.io/badge/platform-Nova%20Life-orange.svg)
+![Jeux](https://img.shields.io/badge/Jeux-Nova%20Life-orange.svg)
 ![License](https://img.shields.io/badge/license-GNU%20GPL%20v3-red.svg)
 
 **NovaRewards** est un système complet de gestion de codes cadeaux pour les serveurs Nova Life. Il permet aux administrateurs de créer, gérer et distribuer des codes promotionnels offrant de l'argent, de l'argent aléatoire (loterie) ou des objets aux joueurs.
