@@ -50,7 +50,6 @@ Ouvrez ce fichier et ajoutez votre URL de Webhook Discord pour activer les logs 
 | Commande | Permission | Description |
 | :--- | :---: | :--- |
 | `/cadeau [CODE]` | Joueur | Permet de récupérer une récompense. |
-| `/cadeau` | Joueur | Ouvre l'interface graphique pour entrer un code. |
 | `/rewards` | Admin (5+) | Ouvre le panel d'administration complet. |
 
 ## 🛡️ License
