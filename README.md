@@ -43,3 +43,29 @@ Ouvrez ce fichier et ajoutez votre URL de Webhook Discord pour activer les logs 
 {
   "DiscordWebhookUrl": "[https://discord.com/api/webhooks/"
 }
+```
+
+## 🎮 Commandes
+
+| Commande | Permission | Description |
+| :--- | :---: | :--- |
+| `/cadeau [CODE]` | Joueur | Permet de récupérer une récompense. |
+| `/cadeau` | Joueur | Ouvre l'interface graphique pour entrer un code. |
+| `/rewards` | Admin (5+) | Ouvre le panel d'administration complet. |
+
+## 🛡️ License
+
+Ce projet est sous licence **GNU General Public License v3.0 (GPLv3)**.
+
+Vous êtes libre de :
+* **Utiliser** ce logiciel pour n'importe quel usage.
+* **Modifier** le code source.
+* **Distribuer** des copies ou des versions modifiées.
+
+Cependant, vous devez respecter les conditions suivantes :
+1.  Si vous distribuez une version modifiée, elle doit rester sous licence **GPLv3**.
+2.  Le code source doit être rendu disponible aux utilisateurs.
+3.  Aucune garantie n'est fournie avec ce logiciel.
+4.  Mentionner l'autheur original du plugin (Robocnop)
+
+Consultez le fichier [LICENSE](https://github.com/Robocnop/NovaRewards/blob/main/LICENSE) pour le texte complet.
