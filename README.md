@@ -41,7 +41,7 @@ Ouvrez ce fichier et ajoutez votre URL de Webhook Discord pour activer les logs 
 
 ```json
 {
-  "DiscordWebhookUrl": "[https://discord.com/api/webhooks/"
+  "DiscordWebhookUrl": "[https://discord.com/api/webhooks/]"
 }
 ```
 
