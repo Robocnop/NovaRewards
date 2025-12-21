@@ -69,3 +69,8 @@ Cependant, vous devez respecter les conditions suivantes :
 4.  Mentionner l'autheur original du plugin (Robocnop)
 
 Consultez le fichier [LICENSE](https://github.com/Robocnop/NovaRewards/blob/main/LICENSE) pour le texte complet.
+
+# Contact
+**Dev Principal:** `@robocnop`
+
+**Contributeur au projet:** `@Shape581`, `@Bankokwak`
