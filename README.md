@@ -73,4 +73,4 @@ Consultez le fichier [LICENSE](https://github.com/Robocnop/NovaRewards/blob/main
 # Contact
 **Dev Principal:** `@robocnop`
 
-**Contributeur au projet:** `@Shape581`, `@Bankokwak`
+**Contributeur au projet:** `@Shape581`
