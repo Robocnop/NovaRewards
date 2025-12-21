@@ -1,9 +1,18 @@
-﻿using System;
-using System.Linq;
-using Life;
+﻿using Life;
 using Life.Network;
+using Life.TabletSystem;
 using Life.UI;
 using ModKit.Helper;
+using ModKit.Utils;
+using Newtonsoft.Json;
+using SQLite;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using UnityEngine.Windows.Speech;
+using Vuplex.WebView;
+using static Life.InventorySystem.Item;
 
 namespace NovaRewards
 {
@@ -27,6 +36,7 @@ namespace NovaRewards
             panel.SetInputPlaceholder("BIENVENUE");
             panel.AddButton("Suivant", (ui) => {
                 if(!string.IsNullOrEmpty(ui.inputText)) OpenCreateStep2(player, plugin, ui.inputText.Trim().ToUpper());
+                else player.Notify("Erreur", "Veuillez entrer un nom.", NotificationManager.Type.Error);
             });
             panel.AddButton("Annuler", (ui) => OpenMainPanel(player, plugin));
             player.ShowPanelUI(panel);
@@ -39,6 +49,7 @@ namespace NovaRewards
             panel.AddButton("Argent Fixe", (ui) => OpenCreateStep3(player, plugin, name, "money"));
             panel.AddButton("Argent Aleatoire", (ui) => OpenCreateStep3(player, plugin, name, "random_money"));
             panel.AddButton("Objet (Item)", (ui) => OpenCreateStep3(player, plugin, name, "item"));
+            panel.AddButton("Véhicule", (ui) => RedirectToVehicleSteps(player, plugin, name, "vehicle", 0, 0));
             player.ShowPanelUI(panel);
         }
 
@@ -58,39 +69,171 @@ namespace NovaRewards
 
         public static void OpenCreateStep4(Player player, NovaRewards plugin, string name, string type, double val1)
         {
-            if(type == "money") { OpenCreateStep5(player, plugin, name, type, val1, 0); return; }
+            if(type == "money") { OpenCreateStep5(player, plugin, name, type, val1, 0, null); return; }
 
             UIPanel panel = new UIPanel("Etape 4/6 : Detail", UIPanel.PanelType.Input);
             if(type == "random_money") panel.SetText($"Min: {val1}€. Entrez le MAXIMUM :");
             else panel.SetText("Quantite d'objets :");
 
             panel.AddButton("Suivant", (ui) => {
-                if(int.TryParse(ui.inputText, out int v2)) OpenCreateStep5(player, plugin, name, type, val1, v2);
+                if(int.TryParse(ui.inputText, out int v2)) OpenCreateStep5(player, plugin, name, type, val1, v2, null);
                 else player.Notify("Erreur", "Nombre incorrect.", NotificationManager.Type.Error);
             });
             player.ShowPanelUI(panel);
         }
 
-        public static void OpenCreateStep5(Player player, NovaRewards plugin, string name, string type, double val1, int val2)
+        #region Vehicle
+
+        public static void RedirectToVehicleSteps(Player player, NovaRewards plugin, string name, string type, double val1, int val2, Dictionary<int, int> vehicles = null)
+        {
+            if (vehicles == null)
+                vehicles = new Dictionary<int, int>();
+            UIPanel panel = new UIPanel("Véhicules", UIPanel.PanelType.TabPrice);
+            panel.AddButton("Fermer", ui => player.ClosePanel(panel));
+            panel.AddButton("<color=green>Finir</color>", ui =>
+            {
+                OpenCreateStep5(player, plugin, name, type, val1, val2, JsonConvert.SerializeObject(vehicles));
+            });
+            panel.AddButton("<color=green>Ajouter</color>", async ui =>
+            {
+                int modelId = await OpenInputModelIdPanel(player);
+                if (modelId == -1)
+                {
+                    RedirectToVehicleSteps(player, plugin, name, type, val1, val2, vehicles);
+                    return;
+                }
+                int quantity = await OpenInputQuantityPanel(player);
+                if (quantity == -1)
+                {
+                    RedirectToVehicleSteps(player, plugin, name, type, val1, val2, vehicles);
+                    return;
+                }
+                if (vehicles.ContainsKey(modelId))
+                {
+                     vehicles[modelId] += quantity;
+                }
+                else
+                {
+                     vehicles.Add(modelId, quantity);
+                }
+                
+                player.Notify("Succès", "Véhicule ajouté.", NotificationManager.Type.Success);
+                player.ClosePanel(panel);
+                RedirectToVehicleSteps(player, plugin, name, type, val1, val2, vehicles);
+            });
+            panel.AddButton("<color=red>Supprimer</color>", ui => ui.SelectTab());
+            foreach (var pair in vehicles.ToDictionary(k => k.Key, v => v.Value))
+            {
+                int modelId = pair.Key;
+                int quantity = pair.Value;
+                panel.AddTabLine(VehicleUtils.GetModelNameByModelId(modelId), quantity.ToString(), VehicleUtils.GetIconId(modelId), ui =>
+                {
+                    vehicles.Remove(modelId);
+                    player.Notify("Succès", "Véhicule retiré.", NotificationManager.Type.Success);
+                    player.ClosePanel(panel);
+                    RedirectToVehicleSteps(player, plugin, name, type, val1, val2, vehicles);
+                });
+            }
+            player.ShowPanelUI(panel);
+        }
+
+        private static async Task<int> OpenInputModelIdPanel(Player player)
+        {
+            try
+            {
+                TaskCompletionSource<int> tcs = new TaskCompletionSource<int>();
+                UIPanel panel = new UIPanel("Choix du model (Véhicule)", UIPanel.PanelType.Input);
+                panel.SetText("Id du Model du véhicule :");
+                panel.AddButton("Fermer", ui =>
+                {
+                    player.ClosePanel(panel);
+                    tcs.TrySetCanceled();
+                });
+                panel.AddButton("Valider", ui =>
+                {
+                    if (int.TryParse(ui.inputText, out int modelId))
+                    {
+                        if (Nova.v.vehicleModels[modelId] != null)
+                        {
+                            player.ClosePanel(panel);
+                            tcs.TrySetResult(modelId);
+                        }
+                        else
+                        {
+                            player.Notify("Erreur", "Véhicule invalide.", NotificationManager.Type.Error);
+                        }
+                    }
+                    else
+                    {
+                        player.Notify("Erreur", "ID invalide.", NotificationManager.Type.Error);
+                    }
+                });
+                player.ShowPanelUI(panel);
+                return await tcs.Task;
+            }
+            catch (TaskCanceledException) { return -1; }
+        }
+
+        private static async Task<int> OpenInputQuantityPanel(Player player)
+        {
+            try
+            {
+                TaskCompletionSource<int> tcs = new TaskCompletionSource<int>();
+                UIPanel panel = new UIPanel("Quantité (Véhicule)", UIPanel.PanelType.Input);
+                panel.SetText("Nombre de véhicules :");
+                panel.AddButton("Fermer", ui =>
+                {
+                    player.ClosePanel(panel);
+                    tcs.TrySetCanceled();
+                });
+                panel.AddButton("Valider", ui =>
+                {
+                    if (int.TryParse(ui.inputText, out int quantity) && quantity > 0)
+                    {
+                        player.ClosePanel(panel);
+                        tcs.TrySetResult(quantity);
+                    }
+                    else
+                    {
+                        player.Notify("Erreur", "Quantité invalide.", NotificationManager.Type.Error);
+                    }
+                });
+                player.ShowPanelUI(panel);
+                return await tcs.Task;
+            }
+            catch (TaskCanceledException) { return -1; }
+        }
+
+        #endregion
+
+        public static void OpenCreateStep5(Player player, NovaRewards plugin, string name, string type, double val1, int val2, string data)
         {
             UIPanel panel = new UIPanel("Etape 5/6 : Validite", UIPanel.PanelType.Input);
             panel.SetText("Duree en JOURS ? (0 = Infini) :");
             panel.AddButton("Suivant", (ui) => {
                 if(int.TryParse(ui.inputText, out int d)) {
                     DateTime? exp = d > 0 ? DateTime.Now.AddDays(d) : (DateTime?)null;
-                    OpenCreateStep6(player, plugin, name, type, val1, val2, exp);
+                    OpenCreateStep6(player, plugin, name, type, val1, data, val2, exp);
                 }
             });
             player.ShowPanelUI(panel);
         }
 
-        public static void OpenCreateStep6(Player player, NovaRewards plugin, string name, string type, double val1, int val2, DateTime? exp)
+        public static void OpenCreateStep6(Player player, NovaRewards plugin, string name, string type, double val1, string data, int val2, DateTime? exp)
         {
             UIPanel panel = new UIPanel("Etape 6/6 : Limites", UIPanel.PanelType.Input);
             panel.SetText("Nombre max d'utilisations ? (0 = Infini)");
             panel.AddButton("CREER LE CODE", (ui) => {
-                if(int.TryParse(ui.inputText, out int max)) {
-                    plugin.CreateCode(new RewardCode { Name = name, Type = type, Value = val1, Quantity = val2, MaxUses = max, ExpirationDate = exp, CreatedBy = player.FullName, CreatedAt = DateTime.Now });
+                if(int.TryParse(ui.inputText, out int max)) 
+                {
+                    if (type == "vehicle")
+                    {
+                        plugin.CreateCode(new RewardCode { Name = name, Type = type, Value = val1, Data = data, Quantity = val2, MaxUses = max, ExpirationDate = exp, CreatedBy = player.FullName, CreatedAt = DateTime.Now });
+                    }
+                    else
+                    {
+                        plugin.CreateCode(new RewardCode { Name = name, Type = type, Value = val1, Quantity = val2, MaxUses = max, ExpirationDate = exp, CreatedBy = player.FullName, CreatedAt = DateTime.Now });
+                    }
                     
                     player.Notify("Succes", "Code cree avec succes !", NotificationManager.Type.Success);
                     

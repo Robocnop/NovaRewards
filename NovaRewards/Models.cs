@@ -11,8 +11,9 @@ namespace NovaRewards
         [Unique]
         public string Name { get; set; }
 
-        public string Type { get; set; } // "money", "item", "random_money"
+        public string Type { get; set; } // "money", "item", "random_money", "vehicle"
         public double Value { get; set; } // Montant ou ID Item ou Min (Random)
+        public string Data { get; set; } = string.Empty; // Données supplémentaires (JSON Véhicules)
         public int Quantity { get; set; } // Qty Item ou Max (Random)
         
         public int MaxUses { get; set; } // 0 = Infini

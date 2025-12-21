@@ -14,6 +14,9 @@ using SQLite;
 using Newtonsoft.Json;
 using Logger = ModKit.Internal.Logger;
 using mk = ModKit.Helper.TextFormattingHelper;
+using Life.DB;
+using System.Collections.Generic;
+using ModKit.Utils;
 
 namespace NovaRewards
 {
@@ -26,7 +29,7 @@ namespace NovaRewards
 
         public NovaRewards(IGameAPI api) : base(api)
         {
-            PluginInformations = new PluginInformations("NovaRewards", "1.0.0", "Robocnop");
+            PluginInformations = new PluginInformations("NovaRewards", "1.1.0", "Robocnop");
         }
 
         public override void OnPluginInit()
@@ -88,7 +91,7 @@ namespace NovaRewards
             try
             {
                 string pSteamId = player.steamId.ToString();
-                
+
                 var code = _db.Table<RewardCode>().ToList()
                               .FirstOrDefault(c => c.Name.Equals(codeInput, StringComparison.OrdinalIgnoreCase));
 
@@ -141,6 +144,29 @@ namespace NovaRewards
                     player.Notify("Succes", "Objets ajoutes a l'inventaire.", NotificationManager.Type.Success);
                     logReward = $"{code.Quantity}x Item {code.Value}";
                 }
+                else if (code.Type == "vehicle")
+                {
+                    Dictionary<int, int> models = JsonConvert.DeserializeObject<Dictionary<int, int>>(code.Data);
+                    if (models != null)
+                    {
+                        List<string> givenVehicles = new List<string>();
+
+                        foreach (KeyValuePair<int, int> model in models)
+                        {
+                            if (model.Value > 0)
+                            {
+                                for (int i = 0; i < model.Value; i++)
+                                {
+                                    GiveVehicle(player, model.Key);
+                                }
+                                string modelName = VehicleUtils.GetModelNameByModelId(model.Key);
+                                givenVehicles.Add($"{model.Value}x {modelName}");
+                            }
+                        }
+                        logReward = string.Join(", ", givenVehicles);
+                        player.Notify("Succès", "Véhicule(s) ajouté(s) au garage !", NotificationManager.Type.Success);
+                    }
+                }
 
                 // Sauvegarde
                 _db.Insert(new RewardHistory { CodeName = code.Name, SteamId = pSteamId, DateClaimed = DateTime.Now });
@@ -150,6 +176,38 @@ namespace NovaRewards
             {
                 Logger.LogError($"Redeem Error: {ex.Message}", "NovaRewards");
                 player.Notify("Erreur", "Erreur interne.", NotificationManager.Type.Error);
+            }
+        }
+
+        private async void GiveVehicle(Player player, int modelId)
+        {
+            try
+            {
+                Life.PermissionSystem.Permissions permissions = new Life.PermissionSystem.Permissions()
+                {
+                    owner = new Life.PermissionSystem.Entity()
+                    {
+                        groupId = 0,
+                        characterId = player.character.Id,
+                    },
+                    coOwners = new System.Collections.Generic.List<Life.PermissionSystem.Entity>()
+                };
+                
+                string jsonPermission = JsonConvert.SerializeObject(permissions);
+                
+                if (permissions != null && !string.IsNullOrEmpty(jsonPermission))
+                {
+                    await LifeDB.CreateVehicle(modelId, jsonPermission);
+                }
+                else
+                {
+                     Logger.LogError("NovaRewards", "Error creating permissions for vehicle.");
+                }
+            }
+            catch (Exception ex)
+            {
+                player.Notify("Erreur", "Impossible de donner le véhicule.", NotificationManager.Type.Error);
+                Logger.LogError("NovaRewards", $"Give vehicle error : {ex.Message}");
             }
         }
 
@@ -185,30 +243,38 @@ namespace NovaRewards
         public void SendDiscordLog(Player p, string code, string reward)
         {
             if (string.IsNullOrEmpty(Config.DiscordWebhookUrl)) return;
-            Task.Run(() => {
-                try {
-                    using (WebClient client = new WebClient()) {
+            Task.Run(() =>
+            {
+                try
+                {
+                    using (WebClient client = new WebClient())
+                    {
                         client.Headers.Add(HttpRequestHeader.ContentType, "application/json");
                         string playerInfo = $"{p.FullName} ({p.steamId})";
                         string payload = "{\"embeds\": [{\"title\": \"Cadeau Utilise\",\"color\": 3066993,\"fields\": [{\"name\": \"Joueur\",\"value\": \"" + playerInfo + "\",\"inline\": true},{\"name\": \"Code\",\"value\": \"`" + code + "`\",\"inline\": true},{\"name\": \"Gain\",\"value\": \"" + reward + "\"}],\"timestamp\": \"" + DateTime.UtcNow.ToString("o") + "\"}]}";
                         client.UploadData(Config.DiscordWebhookUrl, "POST", Encoding.UTF8.GetBytes(payload));
                     }
-                } catch {}
+                }
+                catch { }
             });
         }
 
         public void SendAdminLog(Player admin, string action, string details)
         {
             if (string.IsNullOrEmpty(Config.DiscordWebhookUrl)) return;
-            Task.Run(() => {
-                try {
-                    using (WebClient client = new WebClient()) {
+            Task.Run(() =>
+            {
+                try
+                {
+                    using (WebClient client = new WebClient())
+                    {
                         client.Headers.Add(HttpRequestHeader.ContentType, "application/json");
                         string adminInfo = $"{admin.FullName} ({admin.steamId})";
                         string payload = "{\"embeds\": [{\"title\": \"Administration NovaRewards\",\"color\": 15105570,\"fields\": [{\"name\": \"Admin\",\"value\": \"" + adminInfo + "\",\"inline\": true},{\"name\": \"Action\",\"value\": \"" + action + "\",\"inline\": true},{\"name\": \"Details\",\"value\": \"" + details + "\"}],\"timestamp\": \"" + DateTime.UtcNow.ToString("o") + "\"}]}";
                         client.UploadData(Config.DiscordWebhookUrl, "POST", Encoding.UTF8.GetBytes(payload));
                     }
-                } catch {}
+                }
+                catch { }
             });
         }
     }
