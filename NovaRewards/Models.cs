@@ -27,10 +27,13 @@ namespace NovaRewards
     {
         [PrimaryKey, AutoIncrement]
         public int Id { get; set; }
+        
         [Indexed]
         public string CodeName { get; set; }
+        
         [Indexed]
         public string SteamId { get; set; }
+        
         public DateTime DateClaimed { get; set; }
     }
 
